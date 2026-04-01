@@ -16,8 +16,11 @@ export function ThinkingIndicator() {
             strokeLinecap="round"
             strokeLinejoin="round"
           >
-            <path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z" />
-            <path d="M16 14H8a4 4 0 0 0-4 4v2h16v-2a4 4 0 0 0-4-4z" />
+            <rect x="3" y="11" width="18" height="10" rx="2" />
+            <circle cx="9" cy="16" r="1" fill="white" stroke="none" />
+            <circle cx="15" cy="16" r="1" fill="white" stroke="none" />
+            <path d="M12 2v4" />
+            <path d="M8 11V8a4 4 0 0 1 8 0v3" />
           </svg>
         </div>
       </div>

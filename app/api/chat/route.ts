@@ -9,6 +9,8 @@ import {
   type UIMessage,
 } from "ai";
 import { buildAutomationTools } from "../../../lib/automations/tools";
+import { sql } from "@/lib/db";
+import { requireUserId } from "@/lib/auth/require-user";
 
 const composio = new Composio({ provider: new VercelProvider() });
 
@@ -45,9 +47,11 @@ Important Stagehand rules:
 - Use z.object().describe() fields for accurate extract() results`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const userId = await requireUserId();
+  const body = await req.json();
+  const messages: UIMessage[] = body.messages;
+  const conversationId: string | undefined = body.conversationId ?? undefined;
 
-  const userId = "user_123";
   const session = await composio.create(userId);
   const composioTools = await session.tools();
   const automationTools = buildAutomationTools(userId);
@@ -58,6 +62,55 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
     tools: { ...composioTools, ...automationTools },
     stopWhen: stepCountIs(10),
+    async onFinish({ response }) {
+      if (!conversationId) return;
+
+      // Find new messages (ones we haven't saved yet)
+      // Save the last user message and the assistant response
+      const lastUserMsg = messages[messages.length - 1];
+      if (lastUserMsg?.role === "user") {
+        await sql`
+          INSERT INTO messages (conversation_id, role, parts)
+          VALUES (${conversationId}, 'user', ${JSON.stringify(lastUserMsg.parts)})
+        `;
+      }
+
+      // Save assistant text response
+      const assistantTextParts = response.messages
+        .filter((m) => m.role === "assistant")
+        .flatMap((m) => {
+          if (typeof m.content === "string") {
+            return m.content ? [{ type: "text", text: m.content }] : [];
+          }
+          return m.content
+            .filter((c): c is { type: "text"; text: string } => c.type === "text")
+            .map((c) => ({ type: "text", text: c.text }));
+        });
+
+      if (assistantTextParts.length > 0) {
+        await sql`
+          INSERT INTO messages (conversation_id, role, parts)
+          VALUES (${conversationId}, 'assistant', ${JSON.stringify(assistantTextParts)})
+        `;
+      }
+
+      // Auto-title: if this is the first user message, generate a title
+      const msgCount =
+        await sql`SELECT count(*) as cnt FROM messages WHERE conversation_id = ${conversationId}`;
+      if (Number(msgCount[0].cnt) <= 2) {
+        const userText = lastUserMsg?.parts
+          ?.filter((p: { type: string }) => p.type === "text")
+          .map((p: { type: string; text?: string }) => p.text)
+          .join(" ");
+        if (userText) {
+          const title =
+            userText.length > 50 ? userText.slice(0, 50) + "..." : userText;
+          await sql`UPDATE conversations SET title = ${title}, updated_at = now() WHERE id = ${conversationId}`;
+        }
+      } else {
+        await sql`UPDATE conversations SET updated_at = now() WHERE id = ${conversationId}`;
+      }
+    },
   });
 
   return result.toUIMessageStreamResponse({

@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
+  --background: #1a1a1a;
   --foreground: #e5e5e5;
-  --surface: #141414;
-  --surface-hover: #1a1a1a;
-  --border: #262626;
-  --border-light: #333333;
+  --surface: #242424;
+  --surface-hover: #2a2a2a;
+  --border: #333333;
+  --border-light: #404040;
   --muted: #737373;
   --accent: #3b82f6;
   --accent-soft: #1e3a5f;
@@ -80,7 +80,7 @@ html, body {
 }
 
 .prose-chat code {
-  background: #1e1e1e;
+  background: #2a2a2a;
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.15em 0.35em;
@@ -90,7 +90,7 @@ html, body {
 }
 
 .prose-chat pre {
-  background: #111111;
+  background: #1e1e1e;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
