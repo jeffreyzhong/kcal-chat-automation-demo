@@ -126,6 +126,7 @@ export async function insertRun(automationId: string, triggerRunId?: string) {
 export async function completeRun(
   runId: string,
   result: { logs: unknown[]; error?: string; durationMs: number },
+  screenshotBase64?: string,
 ) {
   const sql = getDb();
   await sql`
@@ -134,7 +135,8 @@ export async function completeRun(
       logs = ${JSON.stringify(result.logs)},
       error = ${result.error ?? null},
       completed_at = now(),
-      duration_ms = ${result.durationMs}
+      duration_ms = ${result.durationMs},
+      screenshot_base64 = ${screenshotBase64 ?? null}
     WHERE id = ${runId}
   `;
 }
@@ -142,11 +144,22 @@ export async function completeRun(
 export async function getAutomationRuns(automationId: string, limit = 10) {
   const sql = getDb();
   return sql`
-    SELECT * FROM automation_runs
+    SELECT id, automation_id, trigger_run_id, status, logs, error,
+           started_at, completed_at, duration_ms,
+           (screenshot_base64 IS NOT NULL) AS has_screenshot
+    FROM automation_runs
     WHERE automation_id = ${automationId}
     ORDER BY started_at DESC
     LIMIT ${limit}
   `;
+}
+
+export async function getRunScreenshot(runId: string) {
+  const sql = getDb();
+  const [row] = await sql`
+    SELECT screenshot_base64 FROM automation_runs WHERE id = ${runId}
+  `;
+  return row?.screenshot_base64 ?? null;
 }
 
 // ── KV Store ──

@@ -6,7 +6,11 @@ import type { AutomationContext } from "./types";
 export async function buildContext(
   userId: string,
   automationId: string,
-): Promise<{ context: AutomationContext; cleanup: () => Promise<void> }> {
+): Promise<{
+  context: AutomationContext;
+  stagehand: Stagehand;
+  cleanup: () => Promise<void>;
+}> {
   // Composio session for API-based tools (OneDrive, Gmail, etc.)
   const composio = new Composio();
   const session = await composio.create(userId);
@@ -35,6 +39,7 @@ export async function buildContext(
 
   return {
     context,
+    stagehand,
     cleanup: () => stagehand.close(),
   };
 }
