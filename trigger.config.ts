@@ -8,4 +8,7 @@ export default defineConfig({
     enabledInDev: false,
     default: { maxAttempts: 3, minTimeoutInMs: 1000, factor: 2 },
   },
+  build: {
+    external: ["esbuild"],
+  },
 });

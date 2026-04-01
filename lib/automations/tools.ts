@@ -17,7 +17,7 @@ export function buildAutomationTools(userId: string) {
   return {
     save_automation: tool({
       description:
-        "Save a new automation. The source_code should be a TypeScript async function body that receives `ctx: AutomationContext` and `z` (Zod). Only call this after the user confirms the code.",
+        "Save a new automation. Only call this after the user confirms the code. The source_code must be plain JavaScript (no TypeScript). It runs as an async function body with ctx and z as globals. For browser automation, use ctx.stagehand.agent({mode:'dom'}) — do NOT use ctx.stagehand.page (it does not exist in Stagehand v3) and do NOT chain multiple act() calls.",
       inputSchema: z.object({
         name: z.string().describe("Short name for the automation"),
         description: z
@@ -30,7 +30,7 @@ export function buildAutomationTools(userId: string) {
         source_code: z
           .string()
           .describe(
-            "TypeScript async function body. Has access to ctx (AutomationContext) and z (Zod).",
+            "Plain JavaScript async function body. Has access to ctx (AutomationContext) and z (Zod). No TypeScript, no imports, no return statements. Use agent() for browser flows, extract() for data.",
           ),
       }),
       execute: async ({ name, description, schedule_cron, source_code }) => {
@@ -89,7 +89,7 @@ export function buildAutomationTools(userId: string) {
         "Update the source code (and optionally the cron schedule) of an existing automation. Show the diff to the user first.",
       inputSchema: z.object({
         automation_id: z.string().describe("The automation UUID"),
-        source_code: z.string().describe("The updated TypeScript source code"),
+        source_code: z.string().describe("The updated plain JavaScript source code. Same rules as save_automation: no TypeScript, no imports, no return statements."),
         schedule_cron: z
           .string()
           .optional()

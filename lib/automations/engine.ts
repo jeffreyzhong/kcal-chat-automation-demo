@@ -1,4 +1,3 @@
-import { transform } from "esbuild";
 import { z } from "zod";
 import type { AutomationContext, LogEntry } from "./types";
 
@@ -23,16 +22,8 @@ export async function executeAutomation(
   };
 
   try {
-    // Transpile TS → JS
-    const { code } = await transform(sourceCode, {
-      loader: "ts",
-      target: "es2022",
-    });
-
-    // Execute with ctx and z (Zod) as the only available bindings
-    const fn = new AsyncFunction("ctx", "z", code);
+    const fn = new AsyncFunction("ctx", "z", sourceCode);
     await fn(ctx, z);
-
     return { logs, durationMs: Date.now() - start };
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);

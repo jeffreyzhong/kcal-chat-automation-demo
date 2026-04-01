@@ -1,35 +1,46 @@
-# Stagehand AI Rules
+# Stagehand v3 Rules for Automation Code
 
 When writing automation code that uses Stagehand (`ctx.stagehand`), follow these rules.
+
+## Critical: No .page property
+
+Stagehand v3 does NOT have a `.page` property. These will crash at runtime:
+```js
+// WRONG — will throw "Cannot read properties of undefined"
+await ctx.stagehand.page.goto("https://example.com");
+await ctx.stagehand.page.waitForLoadState("networkidle");
+```
 
 ## Initialization
 
 Stagehand is pre-initialized on the `AutomationContext` — do NOT create a new instance.
 Use `ctx.stagehand` directly.
 
-## Core Methods
+## Primary method: agent() for multi-step browser flows
 
-### act() — Atomic browser actions
-```ts
-await ctx.stagehand.act("Click the Sign In button");
-await ctx.stagehand.act("Type 'hello' into the search field");
+Use `agent()` for any flow involving navigation + interaction. This is the **default choice**.
+Individual `act()` calls are fragile — they fail on dynamically-loaded pages when elements
+aren't immediately visible. `agent()` handles timing, retries, and sequencing internally.
+
+```js
+const agent = ctx.stagehand.agent({ mode: "dom" });
+await agent.execute({
+  instruction: "Go to https://example.com, click the login button, type user@example.com into the email field, type the password, and click submit.",
+  maxSteps: 20,
+});
 ```
-- Keep instructions **atomic** — one action per call
-- DO: "Click the Submit button"
-- DON'T: "Fill out the form and submit it"
 
-### observe() + act() — Recommended pattern
-```ts
-const actions = await ctx.stagehand.observe("Find the login button");
-await ctx.stagehand.act(actions[0]); // deterministic replay
-```
-- Use observe() first to discover available actions
-- Cache results to prevent DOM changes between planning and execution
-- 2-3x faster than separate act() calls
+- Use `mode: "dom"` (default, works with any LLM)
+- Set `maxSteps` high enough for the flow (20 is a good default)
+- Put the full multi-step instruction in one string
+- Use string concatenation for dynamic values: `"Type " + firstName + " into the name field"`
 
-### extract() — Structured data extraction
-```ts
-const data = await ctx.stagehand.extract(
+## extract() — Structured data extraction
+
+Use after `agent()` completes to pull structured data from the resulting page.
+
+```js
+const result = await ctx.stagehand.extract(
   "Extract the order confirmation details",
   z.object({
     confirmationId: z.string().describe("The order confirmation number"),
@@ -37,45 +48,30 @@ const data = await ctx.stagehand.extract(
   })
 );
 ```
-- Always use Zod schemas with `.describe()` for accuracy
+
+- Always use Zod schemas with `.describe()` on every field
 - Use `z.string().url()` for URL extraction
+- Use `z.string().optional()` for fields that may not be present
 
-### agent() — Complex multi-step flows
-```ts
-const agent = ctx.stagehand.agent({
-  mode: "dom",            // or "cua" for Computer Use Agent
-  model: "anthropic/claude-sonnet-4-20250514",
-});
-await agent.execute({
-  instruction: "Log in, navigate to settings, and change the email to new@example.com",
-  maxSteps: 20,
-});
+## act() — Only for single atomic actions
+
+Only use `act()` for a single action on an already-loaded page. Never chain multiple
+`act()` calls for a multi-step flow — use `agent()` instead.
+
+```js
+// OK — single action after agent() has finished
+await ctx.stagehand.act("Click the Download PDF button");
 ```
-- Use for complex multi-step workflows
-- Navigate to the target page BEFORE calling agent.execute()
 
-### page — Playwright Page
-```ts
-await ctx.stagehand.page.goto("https://example.com");
-await ctx.stagehand.page.reload();
-await ctx.stagehand.page.goBack();
-```
-- Use for direct navigation, reload, back/forward
-- Available as `ctx.stagehand.page`
+## Sensitive data
 
-## Sensitive Data
-
-Use variables to avoid sending secrets to the LLM:
-```ts
+Use variables to keep secrets out of LLM context:
+```js
 await ctx.stagehand.act("Type %password% into the password field", {
-  variables: { password: "my-secret-password" },
+  variables: { password: secretValue },
 });
 ```
 
-## Multi-Page Workflows
+## Code language
 
-Target specific pages:
-```ts
-await ctx.stagehand.act("Click the button", { page: page2 });
-await ctx.stagehand.extract("Get the title", { page: page2 });
-```
+Write **plain JavaScript only** — no TypeScript syntax, no imports, no return statements.

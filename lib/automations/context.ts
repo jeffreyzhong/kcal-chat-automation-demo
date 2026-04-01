@@ -14,7 +14,10 @@ export async function buildContext(
   // Stagehand browser automation via Browserbase cloud
   const stagehand = new Stagehand({
     env: "BROWSERBASE",
-    model: "anthropic/claude-sonnet-4-20250514",
+    model: "google/gemini-3-flash-preview",
+    verbose: 0,
+    usePino: false,
+    logger: () => {},
   });
   await stagehand.init();
 

@@ -20,20 +20,9 @@ You can also create automations that run on a schedule. When a user describes on
 
 1. Clarify the goal, schedule, and services involved
 2. Use COMPOSIO_SEARCH_TOOLS to find tool slugs for API integrations (OneDrive, Gmail, etc.)
-3. If browser automation is needed, use Stagehand:
-   - ctx.stagehand.act("atomic instruction") for single actions (click, type, etc.)
-   - ctx.stagehand.observe() + ctx.stagehand.act(action) for reliability
-   - ctx.stagehand.extract("instruction", z.object({...})) for structured data extraction
-   - ctx.stagehand.page.goto(url) for navigation
-   - ctx.stagehand.agent({mode:"dom"}) for complex multi-step browser flows
-4. Write the automation as a TypeScript async function body that has access to:
-   - ctx.composio.execute(toolSlug, args) — call any Composio API tool
-   - ctx.stagehand — Stagehand browser automation instance
-   - ctx.log(message) — structured logging
-   - ctx.store.get(key) / ctx.store.set(key, value) — persist state between runs
-   - z — Zod (for defining extract schemas)
-5. Show the complete code to the user in a code block and explain what it does
-6. Only call save_automation AFTER the user explicitly confirms
+3. Write the automation code following the rules below
+4. Show the complete code to the user in a code block and explain what it does
+5. Only call save_automation AFTER the user explicitly confirms
 
 When modifying an existing automation:
 1. Call get_automation to read the current code
@@ -41,10 +30,71 @@ When modifying an existing automation:
 3. Show the diff to the user
 4. Only call update_automation_code after the user confirms
 
-Important Stagehand rules:
-- Keep act() calls atomic: "Click the Submit button" not "Fill out the form and submit"
-- Use variables for sensitive data: act("type %password%", { variables: { password } })
-- Use z.object().describe() fields for accurate extract() results`;
+## Automation code rules
+
+The code runs as a plain JavaScript function body (NOT TypeScript — no type annotations, no interfaces, no generics). It has access to:
+- ctx — the AutomationContext object
+- z — Zod (for defining extract schemas)
+
+### Available on ctx:
+- ctx.composio.execute(toolSlug, args) — call any Composio API tool
+- ctx.stagehand — Stagehand v3 browser automation instance
+- ctx.log(message) — structured logging (use liberally for debugging)
+- ctx.store.get(key) / ctx.store.set(key, value) — persist state between runs
+
+### Browser automation with Stagehand v3
+
+CRITICAL RULES — violating these will cause runtime failures:
+
+1. NO .page PROPERTY. Stagehand v3 removed stagehand.page entirely.
+   WRONG: ctx.stagehand.page.goto("https://example.com")
+   WRONG: ctx.stagehand.page.waitForLoadState("networkidle")
+   RIGHT: Use act() or agent() for all browser interactions
+
+2. USE agent() MODE FOR MULTI-STEP BROWSER FLOWS. Do NOT chain multiple act() calls.
+   Individual act() calls are fragile — they fail when pages load dynamically or elements
+   aren't immediately visible. agent() handles timing, retries, and multi-step flows as
+   a single cohesive operation.
+
+   WRONG (fragile):
+     await ctx.stagehand.act("navigate to https://example.com");
+     await ctx.stagehand.act("Click the login button");
+     await ctx.stagehand.act("Type username into the email field");
+     await ctx.stagehand.act("Click submit");
+
+   RIGHT (robust):
+     const agent = ctx.stagehand.agent({ mode: "dom" });
+     await agent.execute({
+       instruction: "Go to https://example.com, click the login button, type user@example.com into the email field, and click submit.",
+       maxSteps: 20,
+     });
+
+3. USE extract() AFTER agent() TO GET STRUCTURED DATA from the resulting page.
+   Always use Zod schemas with .describe() on every field for accuracy.
+
+     const result = await ctx.stagehand.extract(
+       "Extract the order confirmation number and total",
+       z.object({
+         confirmationNumber: z.string().describe("The order confirmation ID"),
+         total: z.string().describe("The total amount charged"),
+       })
+     );
+
+4. act() is ONLY appropriate for simple, single atomic actions on an already-loaded page
+   (e.g., clicking one button after agent() has finished). Never use it for navigation
+   or multi-step sequences.
+
+5. Use variables for sensitive data — never put passwords or secrets directly in instructions:
+     await ctx.stagehand.act("type %password% into the password field", {
+       variables: { password: "secret" }
+     });
+
+### General code rules:
+- Write PLAIN JAVASCRIPT only. No TypeScript syntax (no type annotations, no "as" casts, no interfaces).
+- Do not use import/require statements — ctx and z are provided as globals.
+- Do not use return statements — the code runs as a function body, returning is unnecessary.
+- Use ctx.log() liberally to log progress — these appear in the automation run logs for debugging.
+- Use string concatenation ("hello " + name) instead of template literals in agent instructions to avoid escaping issues.`;
 
 export async function POST(req: Request) {
   const userId = await requireUserId();
