@@ -6,7 +6,7 @@ import { authClient } from "@/lib/auth/client";
 
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
-  const [token, setToken] = useState<string | null>(null);
+  const [token] = useState<string | null>(() => searchParams.get("token"));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -14,13 +14,11 @@ function ResetPasswordForm() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const t = searchParams.get("token");
-    setToken(t);
     // Clear token from URL to prevent leaking via history/referrer
-    if (t) {
+    if (token) {
       window.history.replaceState({}, "", "/auth/reset-password");
     }
-  }, [searchParams]);
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
