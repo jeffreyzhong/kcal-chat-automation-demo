@@ -81,6 +81,15 @@ export default function AuthPage() {
             className="rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-foreground placeholder:text-muted outline-none focus:border-border-light transition-colors"
           />
 
+          {!isSignUp && (
+            <a
+              href="/auth/forgot-password"
+              className="text-sm text-muted hover:text-accent transition-colors"
+            >
+              Forgot password?
+            </a>
+          )}
+
           {error && (
             <p className="text-sm text-red-400">{error}</p>
           )}
