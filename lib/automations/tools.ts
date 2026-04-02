@@ -1,6 +1,7 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { schedules } from "@trigger.dev/sdk/v3";
+import { schedules, tasks } from "@trigger.dev/sdk/v3";
+import type { runAutomation } from "../../trigger/run-automation";
 import {
   insertAutomation,
   setScheduleId,
@@ -168,6 +169,35 @@ export function buildAutomationTools(userId: string) {
             await deleteAutomation(automation_id);
             return { message: `Automation "${auto.name}" deleted.` };
         }
+      },
+    }),
+
+    trigger_automation: tool({
+      description:
+        "Run an automation immediately (on demand) on Trigger.dev, without waiting for its cron schedule. Use when the user says 'run it now', 'test it', 'trigger my automation', etc.",
+      inputSchema: z.object({
+        automation_id: z.string().describe("The automation UUID"),
+      }),
+      execute: async ({ automation_id }) => {
+        const auto = await getAutomation(automation_id);
+        if (!auto) return { error: "Automation not found" };
+
+        const handle = await tasks.trigger<typeof runAutomation>(
+          "run-automation",
+          {
+            externalId: automation_id,
+            scheduleId: (auto.schedule_id as string) ?? "manual",
+            type: "IMPERATIVE" as const,
+            timestamp: new Date(),
+            timezone: "UTC",
+            upcoming: [],
+          },
+        );
+
+        return {
+          message: `Automation "${auto.name}" triggered on Trigger.dev. Run ID: ${handle.id}`,
+          run_id: handle.id,
+        };
       },
     }),
 
