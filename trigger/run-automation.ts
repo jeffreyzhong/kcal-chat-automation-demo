@@ -23,20 +23,35 @@ export const runAutomation = schedules.task({
     // Create run record
     const run = await insertRun(automationId, payload.scheduleId);
 
-    // Build context (Composio + Stagehand + KV) — long-lived, single process
-    const { context, cleanup } = await buildContext(
+    // Only create a Browserbase session if the automation uses ctx.stagehand
+    const sourceCode = auto.source_code as string;
+    const needsBrowser = sourceCode.includes("stagehand");
+
+    const { context, stagehand, cleanup } = await buildContext(
       auto.user_id as string,
       automationId,
+      { needsBrowser },
     );
 
     try {
-      const result = await executeAutomation(
-        auto.source_code as string,
-        context,
-      );
+      const result = await executeAutomation(sourceCode, context);
+
+      // Capture a final screenshot if a browser was used
+      let screenshotBase64: string | undefined;
+      if (stagehand) {
+        try {
+          const page = stagehand.context.activePage();
+          if (page) {
+            const buffer = await page.screenshot({ type: "jpeg", quality: 70 });
+            screenshotBase64 = buffer.toString("base64");
+          }
+        } catch {
+          // Screenshot is best-effort — don't fail the run if it errors
+        }
+      }
 
       // Record result
-      await completeRun(run.id as string, result);
+      await completeRun(run.id as string, result, screenshotBase64);
 
       // Track failures
       if (result.error) {
