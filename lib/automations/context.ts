@@ -1,7 +1,32 @@
+import Browserbase from "@browserbasehq/sdk";
 import { Stagehand } from "@browserbasehq/stagehand";
 import { Composio } from "@composio/core";
 import { kvGet, kvSet } from "../db/queries";
 import type { AutomationContext } from "./types";
+
+/**
+ * Get or create a persistent Browserbase context for this automation.
+ * Contexts persist cookies, localStorage, and session state across runs
+ * so the browser looks like a returning user, not a fresh bot.
+ */
+async function getOrCreateBrowserbaseContext(
+  automationId: string,
+): Promise<string> {
+  const existing = await kvGet(automationId, "browserbase_context_id");
+  if (existing && typeof existing === "string") {
+    return existing;
+  }
+
+  const bb = new Browserbase({
+    apiKey: process.env.BROWSERBASE_API_KEY!,
+  });
+  const ctx = await bb.contexts.create({
+    projectId: process.env.BROWSERBASE_PROJECT_ID!,
+  });
+
+  await kvSet(automationId, "browserbase_context_id", ctx.id);
+  return ctx.id;
+}
 
 export async function buildContext(
   userId: string,
@@ -19,12 +44,28 @@ export async function buildContext(
   // Only spin up a Browserbase browser when the automation actually needs one
   let stagehand: Stagehand | null = null;
   if (options?.needsBrowser) {
+    // Get or create a persistent browser context for this automation
+    const browserbaseContextId =
+      await getOrCreateBrowserbaseContext(automationId);
+
     stagehand = new Stagehand({
       env: "BROWSERBASE",
       model: "google/gemini-3-flash-preview",
       verbose: 0,
-      usePino: false,
+      disablePino: true,
       logger: () => {},
+      waitForCaptchaSolves: true,
+      browserbaseSessionCreateParams: {
+        proxies: true,
+        browserSettings: {
+          solveCaptchas: true,
+          blockAds: true,
+          context: {
+            id: browserbaseContextId,
+            persist: true, // save cookies/state back after each run
+          },
+        },
+      },
     });
     await stagehand.init();
   }
