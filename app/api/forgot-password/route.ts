@@ -2,6 +2,19 @@ import { randomBytes, randomUUID } from "crypto";
 import { getDb } from "@/lib/db/client";
 import { sendPasswordResetEmail } from "@/lib/email";
 
+/**
+ * Generate a 24-char alphanumeric token matching Better Auth's generateId(24).
+ */
+function generateToken(length = 24): string {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = randomBytes(length);
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars[bytes[i] % chars.length];
+  }
+  return result;
+}
+
 export async function POST(request: Request) {
   let body: { email?: string };
   try {
@@ -26,20 +39,25 @@ export async function POST(request: Request) {
       return Response.json({ success: true });
     }
 
-    const token = randomBytes(32).toString("base64url");
+    const userId = users[0].id;
+    const token = generateToken(24);
     const now = new Date();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-    const identifier = `reset-password:${email}`;
 
-    // Remove any existing reset tokens for this email
+    // Better Auth format: identifier = "reset-password:{token}", value = userId
+    // Lookup is by identifier, not by value
+    const identifier = `reset-password:${token}`;
+
+    // Remove any stale reset tokens for this user (match by value = userId)
     await sql`
-      DELETE FROM neon_auth.verification WHERE identifier = ${identifier}
+      DELETE FROM neon_auth.verification
+      WHERE identifier LIKE 'reset-password:%' AND value = ${userId}
     `;
 
     // Insert new verification token
     await sql`
       INSERT INTO neon_auth.verification (id, identifier, value, "expiresAt", "createdAt", "updatedAt")
-      VALUES (${randomUUID()}, ${identifier}, ${token}, ${expiresAt.toISOString()}, ${now.toISOString()}, ${now.toISOString()})
+      VALUES (${randomUUID()}, ${identifier}, ${userId}, ${expiresAt.toISOString()}, ${now.toISOString()}, ${now.toISOString()})
     `;
 
     const baseUrl =
