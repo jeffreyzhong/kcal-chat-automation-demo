@@ -7,6 +7,7 @@ import { authClient } from "@/lib/auth/client";
 function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const [token] = useState<string | null>(() => searchParams.get("token"));
+  const [email] = useState<string | null>(() => searchParams.get("email"));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -48,6 +49,15 @@ function ResetPasswordForm() {
             "This reset link has expired or has already been used."
         );
         return;
+      }
+
+      // Mark email as verified — user proved ownership via the reset link
+      if (email) {
+        await fetch("/api/reset-password/verify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }).catch(() => {});
       }
 
       setSuccess(true);
