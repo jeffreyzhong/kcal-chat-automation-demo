@@ -51,6 +51,8 @@ export async function buildContext(
     stagehand = new Stagehand({
       env: "BROWSERBASE",
       model: "google/gemini-3-flash-preview",
+      experimental: true,
+      disableAPI: true,
       verbose: 0,
       disablePino: true,
       logger: () => {},
