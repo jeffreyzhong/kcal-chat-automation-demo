@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "automations:pull": "tsx scripts/sync-automations.ts pull",
+    "automations:push": "tsx scripts/sync-automations.ts push"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.49",
