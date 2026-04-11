@@ -182,6 +182,15 @@ async function push(ids?: string[]) {
       `;
     }
 
+    // Clear Stagehand cache when code changes (old cache keys become dead weight)
+    if (codeChanged) {
+      await sql`
+        UPDATE automations
+        SET kv_store = jsonb_set(COALESCE(kv_store, '{}'), '{stagehand_cache}', 'null'::jsonb)
+        WHERE id = ${meta.id}
+      `;
+    }
+
     // Update Trigger.dev schedule if cron changed
     if (cronChanged && dbRow.schedule_id) {
       try {

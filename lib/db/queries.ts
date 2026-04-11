@@ -162,6 +162,12 @@ export async function getRunScreenshot(runId: string) {
   return row?.screenshot_base64 ?? null;
 }
 
+// ── Stagehand Cache ──
+
+export async function clearStagehandCache(automationId: string) {
+  await kvSet(automationId, "stagehand_cache", null);
+}
+
 // ── KV Store ──
 
 export async function kvGet(automationId: string, key: string) {

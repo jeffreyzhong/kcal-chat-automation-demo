@@ -25,16 +25,20 @@ export const runAutomation = schedules.task({
 
     // Only create a Browserbase session if the automation uses ctx.stagehand
     const sourceCode = auto.source_code as string;
-    const needsBrowser = sourceCode.includes("stagehand");
+    const needsBrowser = sourceCode.includes("stagehand") || sourceCode.includes("Stagehand");
+    const persistBrowserContext = sourceCode.includes("PERSIST_BROWSER_CONTEXT = true");
 
-    const { context, stagehand, cleanup } = await buildContext(
+    const { context, stagehand, allStagehandInstances, cacheLogs, cleanup } = await buildContext(
       auto.user_id as string,
       automationId,
-      { needsBrowser },
+      { needsBrowser, ephemeral: true, persistBrowserContext },
     );
 
     try {
-      const result = await executeAutomation(sourceCode, context);
+      const result = await executeAutomation(sourceCode, context, {
+        allStagehandInstances,
+        cacheLogs,
+      });
 
       // Capture a final screenshot if a browser was used
       let screenshotBase64: string | undefined;

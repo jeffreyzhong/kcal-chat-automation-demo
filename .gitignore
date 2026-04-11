@@ -47,6 +47,9 @@ skills-lock.json
 # automation files pulled from DB (may contain secrets)
 /automations/
 
+# stagehand agent cache
+/.cache/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

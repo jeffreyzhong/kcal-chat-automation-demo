@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "automations:pull": "tsx scripts/sync-automations.ts pull",
-    "automations:push": "tsx scripts/sync-automations.ts push"
+    "automations:pull": "npx tsx scripts/sync-automations.ts pull",
+    "automations:push": "npx tsx scripts/sync-automations.ts push",
+    "automations:run": "npx tsx scripts/run-local.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.49",

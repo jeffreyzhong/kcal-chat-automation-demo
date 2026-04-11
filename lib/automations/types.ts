@@ -27,6 +27,12 @@ export interface AutomationContext {
    */
   stagehand: Stagehand;
 
+  /** Create a new browser instance for parallel processing. Shares cache with the default instance. */
+  createStagehand: () => Promise<Stagehand>;
+
+  /** Clear the Stagehand agent cache so the next run re-explores with AI. */
+  clearCache: () => void;
+
   /** Structured logging — captured in automation_runs.logs */
   log: (message: string) => void;
 
